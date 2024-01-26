@@ -1,0 +1,92 @@
+{% extends "layout.html" %} {% block content %}
+
+<div
+  class="block p-6 m-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700"
+>
+  <h5
+    class="mb-2 text-2xl font-bold tracking-tight text-gray-900 dark:text-white"
+  >
+    {{ name }} <span class="text-lg"> ({{ roll_number }}) </span>
+  </h5>
+  <p class="font-normal text-gray-700 dark:text-gray-400">
+    {% for course in data %} {% if course.status == 0 %}
+    <span
+      class="text-xs font-medium me-2 px-2.5 py-0.5 rounded bg-green-600 dark:bg-green-800 text-white text-nowrap"
+    >
+      {{ course.course }} ( {{ course.grade }} )
+    </span>
+    {% endif %} {% if course.status == 1 %}
+    <span
+      class="text-xs font-medium me-2 px-2.5 py-0.5 rounded bg-yellow-600 text-white text-nowrap"
+    >
+      {{ course.course }}
+    </span>
+    {% endif %} {% if course.status == 2 %}
+    <span
+      class="text-xs font-medium me-2 px-2.5 py-0.5 rounded bg-red-600 dark:bg-red-800 text-white text-nowrap"
+    >
+      {{ course.course }}
+    </span>
+    {% endif %} {% endfor %}
+  </p>
+</div>
+
+{% if failed_data |length != 0 %}
+
+<div
+  class="block p-6 m-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700"
+>
+  <h5 class="text-gray-900 text-2xl dark:text-white uppercase mb-5">
+    Status of failed subjects
+  </h5>
+  <div class="relative overflow-x-auto">
+    <table
+      class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400"
+    >
+      <thead
+        class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400"
+      >
+        <tr>
+          <th scope="col" class="px-3 py-2">Subject</th>
+          <th scope="col" class="px-3 py-2">Failed Year</th>
+          <th scope="col" class="px-3 py-2">Passed Year</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for student in failed_data %} {% if (student.updated_graded_year) %}
+        <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+          <td class="px-3 py-2">
+            <span
+              class="text-white text-xs font-medium me-2 px-2.5 py-0.5 rounded bg-yellow-500"
+            >
+              {{ student.course_id }}
+            </span>
+          </td>
+          <td class="px-3 py-2">
+            {{ student.grade }} ({{ student.graded_year }})
+          </td>
+          <td class="px-3 py-2">
+            {{ student.updated_grade }} ({{ student.updated_graded_year }})
+          </td>
+        </tr>
+        {% else %}
+        <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+          <td class="px-3 py-2">
+            <span
+              class="text-white text-xs font-medium me-2 px-2.5 py-0.5 rounded bg-red-500"
+            >
+              {{ student.course_id }}
+            </span>
+          </td>
+          <td class="px-3 py-2">
+            {{ student.grade }} ({{ student.graded_year }})
+          </td>
+          <td class="px-3 py-2"></td>
+        </tr>
+        {% endif %} {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endif %} {% endblock %}

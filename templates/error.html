@@ -1,0 +1,26 @@
+{% extends "layout.html" %} {% block content %}
+
+<div class="flex flex-col justify-center items-center h-52 w-full" id="error">
+  <p class="text-6xl font-semibold text-gray-900 dark:text-white">{{error}}</p>
+  <p class="text-sm text-gray-900 dark:text-white">
+    You encountered <span class="text-red-600">error</span>, we are trying to
+    redirect you back to
+    <a href="/" class="underline text-blue-600">home page</a> ...
+  </p>
+</div>
+
+<script>
+  setTimeout(() => {
+    console.log(window.location.pathname);
+    if (window.location.pathname != "/") {
+      window.location.href = "/";
+    } else {
+      p = document.createElement("p");
+      p.classList = "text-md text-gray-900 dark:text-white";
+      p.innerText = "Please go to home manually, unable to redirect you...";
+      document.getElementById("error").appendChild(p);
+    }
+  }, 10000);
+</script>
+
+{% endblock %}

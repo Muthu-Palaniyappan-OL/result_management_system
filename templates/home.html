@@ -1,5 +1,211 @@
 {% extends "layout.html" %} {% block content %}
 
-<p>Home</p>
+<div class="p-5">
+  <div
+    class="bg-slate-300 dark:bg-gray-800 rounded-md mb-5 p-5 flex flex-row align-middle"
+  >
+    <button
+      type="button"
+      class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
+    >
+      Generate All Clear List
+    </button>
+    <div
+      class="border-l-2 border-solid border-gray-400 dark:border-gray-500 h-10 mx-4"
+    ></div>
+    <button
+      type="button"
+      class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
+    >
+      Arrear List
+    </button>
+    <div
+      class="border-l-2 border-solid border-gray-400 dark:border-gray-500 h-10 mx-4"
+    ></div>
+    <input
+      type="text"
+      id="roll_number"
+      class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+      placeholder="Enter roll number..."
+    />
+    <button
+      type="submit"
+      onclick="explore()"
+      class="p-2.5 ms-2 text-sm font-medium text-white bg-blue-700 rounded-lg border border-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+    >
+      Go
+    </button>
+    <script>
+      function explore() {
+        window.open(
+          "/profile?roll_number=" +
+            document.getElementById("roll_number").value,
+          "_blank"
+        );
+      }
+    </script>
+  </div>
+
+  {% if selected_year == None %} {% endif %}
+
+  <form class="bg-slate-300 dark:bg-gray-800 rounded-md p-5" method="post">
+    <div class="flex gap-2">
+      <!-- Year -->
+      <select
+        name="year"
+        class="bg-gray-50 border h-full border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+      >
+        {% if selected_year %}
+        <option value="">Select Year</option>
+        {% else %}
+        <option selected value="">Select Year</option>
+        {% endif %} {% for year in years %} {% if selected_year == year[0] %}
+        <option selected value="{{year[0]}}">{{year[0]}}</option>
+        {% else %}
+        <option value="{{year[0]}}">{{year[0]}}</option>
+        {% endif %} {% endfor %}
+      </select>
+
+      <!-- Submit Button -->
+      <button
+        type="submit"
+        class="p-2.5 text-sm font-medium h-full text-white bg-blue-700 rounded-md border border-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+      >
+        <svg
+          class="w-4 h-4"
+          aria-hidden="true"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 20 20"
+        >
+          <path
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"
+          />
+        </svg>
+        <span class="sr-only">Search</span>
+      </button>
+    </div>
+
+    <!-- Choice -->
+    <div class="grid-cols-4 block p-2 mt-2">
+      <div class="flex items-center mb-4 gap-2">
+        <input {% if search_flag == '' %} checked {% endif %}
+        id="default-radio-1" type="radio" value="" name="search_flag" class="w-4
+        h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500
+        dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2
+        dark:bg-gray-700 dark:border-gray-600" />
+        <label
+          for="default-radio-1"
+          class="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300"
+          >All Students</label
+        >
+        <input {% if search_flag == '0' %} checked {% endif %}
+        id="default-radio-2" type="radio" value="0" name="search_flag"
+        class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300
+        focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800
+        focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
+        <label
+          for="default-radio-2"
+          class="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300"
+          >No Arrear</label
+        >
+        <input {% if search_flag == '2' %} checked {% endif %}
+        id="default-radio-3" type="radio" value="2" name="search_flag"
+        class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300
+        focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800
+        focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
+        <label
+          for="default-radio-3"
+          class="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300"
+          >Current Arrear</label
+        >
+        <input {% if search_flag == '0.5' %} checked {% endif %}
+        id="default-radio-4" type="radio" value="0.5" name="search_flag"
+        class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300
+        focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800
+        focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
+        <label
+          for="default-radio-4"
+          class="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300"
+          >No Current Arrear</label
+        >
+        <input {% if search_flag == '1' %} checked {% endif %}
+        id="default-radio-5" type="radio" value="1" name="search_flag"
+        class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300
+        focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800
+        focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
+        <label
+          for="default-radio-5"
+          class="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300"
+          >Cleared All Arrear</label
+        >
+      </div>
+    </div>
+  </form>
+</div>
+
+<div class="relative overflow-x-auto p-5">
+  <table
+    class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400"
+  >
+    <thead
+      class="text-xs text-gray-700 uppercase bg-slate-300 underline font-bold dark:bg-gray-700 dark:text-gray-400"
+    >
+      <tr>
+        <th scope="col" class="px-6 py-3">S.No.</th>
+        <th scope="col" class="px-6 py-3">Name</th>
+        <th scope="col" class="px-6 py-3">Subjects</th>
+      </tr>
+    </thead>
+    <tbody class="bg-slate-300">
+      {% if not m or m |length == 0 %}
+      <tr class="border-b dark:bg-gray-800 dark:border-gray-700">
+        <td colspan="3" class="text-md text-center">-- No Data --</td>
+      </tr>
+      {% else %} {% for sno, (roll_number, data) in m %}
+      <tr class="border-b dark:bg-gray-800 dark:border-gray-700">
+        <th scope="row" class="px-6 py-4">{{sno}}</th>
+        <td
+          class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white"
+        >
+          <a
+            class="underline text-blue-500"
+            href="/profile?roll_number={{roll_number}}"
+            target="_blank"
+          >
+            {{names_map[roll_number]}}
+            <span class="block text-sm">({{roll_number}})</span>
+          </a>
+        </td>
+        <td class="px-6 py-4 flex flex-row gap-2 flex-wrap">
+          {% for course in data %} {% if course.status == 0 %}
+          <span
+            class="text-xs font-medium me-2 px-2.5 py-0.5 rounded bg-green-600 dark:bg-green-800 text-white text-nowrap"
+          >
+            {{ course.course_id }} ( {{ course.grade }} )
+          </span>
+          {% endif %} {% if course.status == 1 %}
+          <span
+            class="text-xs font-medium me-2 px-2.5 py-0.5 rounded bg-yellow-600 text-white text-nowrap"
+          >
+            {{ course.course_id }}
+          </span>
+          {% endif %} {% if course.status == 2 %}
+          <span
+            class="text-xs font-medium me-2 px-2.5 py-0.5 rounded bg-red-600 dark:bg-red-800 text-white text-nowrap"
+          >
+            {{ course.course_id }}
+          </span>
+          {% endif %} {% endfor %}
+        </td>
+      </tr>
+      {% endfor %} {% endif %}
+    </tbody>
+  </table>
+</div>
 
 {% endblock %}

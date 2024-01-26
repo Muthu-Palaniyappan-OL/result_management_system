@@ -1,15 +1,15 @@
 from flask import Flask, render_template, flash, redirect, request, url_for
-from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import UniqueConstraint
 import sqlalchemy.dialects.sqlite as sqlite
 from collections import Counter
 import pandas as pd
 import tabula
 import re
+from sqlalchemy import or_
 import sqlalchemy
 from sqlalchemy import delete, select, String, Integer, Column, ForeignKey, update
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import Mapped, mapped_column, sessionmaker
+from sqlalchemy.orm import declarative_base
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'MuthuPalaniyappanOL'
@@ -17,6 +17,8 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 
 engine = sqlalchemy.create_engine('sqlite:///database.db')
 conn = engine.connect()
+Session = sessionmaker(bind=engine)
+session = Session()
 
 
 DeclarativeBase = declarative_base()
@@ -52,6 +54,7 @@ class StudentCourse(DeclarativeBase):
     roll_number = Column(Integer, ForeignKey('student.roll_number'), nullable=False)
     grade = Column(String(1), nullable=False)
     graded_year = Column(Integer, nullable=False)
+    status = Column(Integer, nullable=False)
 
     updated_grade = Column(String(1), nullable=True)
     updated_graded_year = Column(Integer, nullable=True)
@@ -59,11 +62,52 @@ class StudentCourse(DeclarativeBase):
     __table_args__ = (UniqueConstraint('course_id', 'roll_number', name='_course_roll_number_uc'),)
 
     def __repr__(self) -> str:
-        return f"StudentCourse(roll_number={self.roll_number}, course_id={self.course_id})"
+        return f"StudentCourse(roll_number={self.roll_number}, course_id={self.course_id}, graded_year={self.graded_year}, grade={self.grade})"
 
-@app.get('/')
+@app.route('/', methods=['POST', 'GET'])
 def home():
-    return render_template('home.html', title='Home')
+    years = session.query(Student.joined_year).distinct().all()
+    subjects = session.query(Course.course_id).distinct().all()
+    
+    selected_year = request.form.get('year')
+    selected_year = '' if selected_year == None or selected_year == '' else int(selected_year)
+    search_flag = request.form.get('search_flag')
+
+    if selected_year != '':
+        
+        # Get names
+        names = session.query(Student).where(Student.joined_year == int(selected_year)).all()
+        names_map = {}
+        for n in names:
+            names_map[n.roll_number] = n.name
+
+        # Get Data
+        data = session.query(StudentCourse).join(Student, StudentCourse.roll_number == Student.roll_number).filter(Student.joined_year == int(selected_year)).all()
+        m = {}
+        for d in data:
+            if d.roll_number not in m:
+                m[d.roll_number] = []
+            
+            m[d.roll_number].append(d)
+        
+        for v in m:
+            m[v] = sorted(m[v], key=lambda d:d.graded_year)
+
+        if search_flag != '' and search_flag != '0.5':
+            flag = int(search_flag)
+            for v in m:
+                m[v] = [sc for sc in m[v] if sc.status == flag]
+            m = {v : m[v] for v in m if len(m[v]) > 0}
+
+        if search_flag == '0.5':
+            for v in m:
+                m[v] = [sc for sc in m[v] if sc.status == 0 or sc.status == 1]
+            m = {v : m[v] for v in m if len(m[v]) > 0}
+        
+        return render_template('home.html', title='Home', years=years, subjects=subjects, selected_year=selected_year, m=list(enumerate(sorted(list(m.items()), key=lambda x: x[0]), start=1)), names_map=names_map, search_flag=search_flag)
+
+    
+    return render_template('home.html', title='Home', years=years, subjects=subjects, selected_year=selected_year)
 
 @app.get('/database')
 def database():
@@ -101,7 +145,7 @@ def process_pdf(file):
     year = find_year(df)
 
     for i in range(len(df)):
-        insert_statement = sqlite.insert(Student).values(roll_number=int(df.iloc[i][0]), name=df.iloc[i][1], joined_year=year)
+        insert_statement = sqlite.insert(Student).values(roll_number=int(df.iloc[i][0]), name=df.iloc[i][1], joined_year=int(df.iloc[i][0][:4]))
         insert_statement = insert_statement.on_conflict_do_nothing(index_elements=["roll_number"])
         conn.execute(insert_statement)
     
@@ -117,12 +161,15 @@ def process_pdf(file):
 
                 # New Student Detail
                 if len(students_in_db) == 0:
-                        conn.execute(sqlite.insert(StudentCourse).values(course_id=c, roll_number=int(df.iloc[student_i][0]), grade=df.iloc[student_i][course_i + 2], graded_year=current_year))
+                        conn.execute(sqlite.insert(StudentCourse).values(course_id=c, roll_number=int(df.iloc[student_i][0]), grade=df.iloc[student_i][course_i + 2], graded_year=current_year, status=(0 if df.iloc[student_i][course_i + 2] in ['O', 'A+', 'A', 'B+', 'B'] else 2)))
                 else:
-                    if students_in_db[0].graded_year == 0 and students_in_db[0].updated_graded_year == year:
-                        conn.execute(update(StudentCourse).values(grade=df.iloc[student_i][course_i + 2], graded_year=year).where((StudentCourse.roll_number==int(df.iloc[student_i][0])) & (StudentCourse.course_id==c)))
-                    else:
-                        conn.execute(update(StudentCourse).values(updated_grade=df.iloc[student_i][course_i + 2], updated_graded_year=year).where((StudentCourse.roll_number==int(df.iloc[student_i][0])) & (StudentCourse.course_id==c)))
+                    if students_in_db[0].graded_year < current_year:
+                        print('Update ' + str(students_in_db[0].roll_number) + ' ' + students_in_db[0].course_id)
+                        conn.execute(update(StudentCourse).values(updated_grade=df.iloc[student_i][course_i + 2], updated_graded_year=current_year, status=1).where((StudentCourse.roll_number==int(df.iloc[student_i][0])) & (StudentCourse.course_id==c)))
+
+                    if students_in_db[0].graded_year > current_year:
+                        print('Reverse Update ' + str(students_in_db[0].roll_number) + ' ' + students_in_db[0].course_id)
+                        conn.execute(update(StudentCourse).values(grade=df.iloc[student_i][course_i + 2], graded_year=current_year, updated_grade=students_in_db[0].grade, updated_graded_year=students_in_db[0].graded_year, status=1).where((StudentCourse.roll_number==int(df.iloc[student_i][0])) & (StudentCourse.course_id==c)))
                 
                 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
                 #                                          OLD PLAN                                       #
@@ -148,6 +195,17 @@ def process_pdf(file):
                 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
     conn.commit()
+
+@app.route('/profile')
+def profile():
+    roll_number = int(request.args.get('roll_number'))
+    student = session.query(Student).filter_by(roll_number=roll_number).first()
+    if student is None:
+        return render_template('error.html', error='No Such Student')
+    student_courses_data = session.query(StudentCourse).filter(StudentCourse.roll_number == roll_number).all()
+    data = sorted([{'year': student.graded_year, 'course': student.course_id, 'status': student.status, 'grade': student.grade} for student in student_courses_data], key=lambda b:b['year'])
+    failed_data = sorted(list(filter(lambda s:s.status == 2 or s.status == 1, student_courses_data)), key=lambda b:b.graded_year)
+    return render_template('profile.html', name=student.name, roll_number=student.roll_number, title=student.name, data=data, failed_data=failed_data)
 
 @app.route('/execute')
 def execute():
