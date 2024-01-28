@@ -1,4 +1,4 @@
-from flask import Flask, render_template, flash, redirect, request, url_for
+from flask import Flask, render_template, flash, redirect, request, url_for, make_response
 from sqlalchemy import UniqueConstraint
 import sqlalchemy.dialects.sqlite as sqlite
 from collections import Counter
@@ -10,6 +10,8 @@ import sqlalchemy
 from sqlalchemy import delete, select, String, Integer, Column, ForeignKey, update
 from sqlalchemy.orm import Mapped, mapped_column, sessionmaker
 from sqlalchemy.orm import declarative_base
+import pdfkit
+from jinja2 import Template
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'MuthuPalaniyappanOL'
@@ -93,16 +95,22 @@ def home():
         for v in m:
             m[v] = sorted(m[v], key=lambda d:d.graded_year)
 
-        if search_flag != '' and search_flag != '0.5':
-            flag = int(search_flag)
-            for v in m:
-                m[v] = [sc for sc in m[v] if sc.status == flag]
-            m = {v : m[v] for v in m if len(m[v]) > 0}
 
+        # No Arrear
+        if search_flag == '0':
+            m = {v : m[v] for v in m if len(list(filter(lambda d:d.status != int(search_flag), m[v]))) == 0}
+
+        # Cleared All Arrear
+        if search_flag == '1':
+            m = {v : m[v] for v in m if len(list(filter(lambda d:d.status > int(search_flag), m[v]))) == 0}
+
+        # Current Arrear
+        if search_flag == '2':
+            m = {v : m[v] for v in m if len(list(filter(lambda d:d.status == int(search_flag), m[v]))) > 0}
+
+        # No Current Arrear
         if search_flag == '0.5':
-            for v in m:
-                m[v] = [sc for sc in m[v] if sc.status == 0 or sc.status == 1]
-            m = {v : m[v] for v in m if len(m[v]) > 0}
+            m = {v : m[v] for v in m if len(list(filter(lambda d:d.status == 2, m[v]))) == 0}
         
         return render_template('home.html', title='Home', years=years, subjects=subjects, selected_year=selected_year, m=list(enumerate(sorted(list(m.items()), key=lambda x: x[0]), start=1)), names_map=names_map, search_flag=search_flag)
 
@@ -112,6 +120,88 @@ def home():
 @app.get('/database')
 def database():
     return render_template('database.html', title='Database')
+
+@app.get('/no_arrear_list')
+def no_arrear_list():
+    batch_year = int(request.args.get('year'))
+
+    graded_years = session.query(StudentCourse.graded_year).join(Student, StudentCourse.roll_number == Student.roll_number).filter(Student.joined_year == batch_year).distinct(StudentCourse.graded_year).all()
+    updated_graded_years = session.query(StudentCourse.updated_graded_year).join(Student, StudentCourse.roll_number == Student.roll_number).filter(Student.joined_year == batch_year).distinct(StudentCourse.updated_graded_year).all()
+    years = set()
+
+    for y in graded_years:
+        if y != None:
+            years.add(y[0])
+    for y in updated_graded_years:
+        if y != None:
+            years.add(y[0])
+    years = list(filter(lambda d:d != None, list(years)))[:4]
+
+    m = {}
+
+    for i, year in enumerate(years):
+        failed_students_roll_number = [r[0] for r in session.query(Student.roll_number).join(StudentCourse, Student.roll_number == StudentCourse.roll_number).filter(Student.joined_year == batch_year, StudentCourse.status != 0, StudentCourse.graded_year == year ).distinct(Student.roll_number).all()]
+        m[i] = list(sorted([{'name':s.name, 'roll_number': s.roll_number} for s in session.query(Student).join(StudentCourse, Student.roll_number == StudentCourse.roll_number).filter(Student.joined_year == batch_year, StudentCourse.graded_year == year, Student.roll_number.notin_(failed_students_roll_number) ).distinct(Student.roll_number, Student.name).all()], key=lambda d:d['roll_number']))
+        if i != 0:
+            m[i] = list(filter(lambda d: len(list(filter(lambda f: d['roll_number'] == f['roll_number'], m[i-1]))) == 1, m[i]))
+    
+    max_length = max([len(m[i]) for i in range(len(m))])
+    
+    clearance_template = Template(open('./templates/clearance_list.html', 'r').read())
+    html_build = clearance_template.render(batch_year=batch_year, data=m, years=years, max_length=max_length)
+    resp = make_response(pdfkit.from_string(html_build, options={
+        'orientation': 'Landscape',
+        'page-size': 'A4',
+        'margin-top': '0.2in',
+        'margin-right': '0.2in',
+        'margin-bottom': '0.2in',
+        'margin-left': '0.2in',
+        'encoding': "UTF-8",
+        'no-outline': None
+        }))
+    resp.headers['Content-Type'] = 'application/pdf'
+    return resp
+
+@app.get('/arrear_cleared_list')
+def arrear_cleared_list():
+    batch_year = int(request.args.get('year'))
+
+    graded_years = session.query(StudentCourse.graded_year).join(Student, StudentCourse.roll_number == Student.roll_number).filter(Student.joined_year == batch_year).distinct(StudentCourse.graded_year).all()
+    updated_graded_years = session.query(StudentCourse.updated_graded_year).join(Student, StudentCourse.roll_number == Student.roll_number).filter(Student.joined_year == batch_year).distinct(StudentCourse.updated_graded_year).all()
+    years = set()
+
+    for y in graded_years:
+        if y != None:
+            years.add(y[0])
+    for y in updated_graded_years:
+        if y != None:
+            years.add(y[0])
+    years = sorted(list(filter(lambda d:d != None, list(years))))[3:]
+
+    m = {}
+
+    for i, year in enumerate(years):
+        failed_students_roll_number = [r[0] for r in session.query(Student.roll_number).join(StudentCourse, Student.roll_number == StudentCourse.roll_number).filter(Student.joined_year == batch_year, StudentCourse.status != 0, StudentCourse.graded_year == year ).distinct(Student.roll_number).all()]
+        m[i] = list(sorted([{'name':s.name, 'roll_number': s.roll_number} for s in session.query(Student).join(StudentCourse, Student.roll_number == StudentCourse.roll_number).filter(Student.joined_year == batch_year, StudentCourse.graded_year == year, Student.roll_number.notin_(failed_students_roll_number) ).distinct(Student.roll_number, Student.name).all()], key=lambda d:d['roll_number']))
+        if i != 0:
+            m[i] = list(filter(lambda d: len(list(filter(lambda f: d['roll_number'] == f['roll_number'], m[i-1]))) == 1, m[i]))
+    
+    max_length = max([len(m[i]) for i in range(len(m))])
+    
+    clearance_template = Template(open('./templates/arrear_cleared_list.html', 'r').read())
+    html_build = clearance_template.render(batch_year=batch_year, data=m, years=years, max_length=max_length)
+    resp = make_response(pdfkit.from_string(html_build, options={
+        'orientation': 'Landscape',
+        'page-size': 'A4',
+        'margin-top': '0.2in',
+        'margin-right': '0.2in',
+        'margin-bottom': '0.2in',
+        'margin-left': '0.2in',
+        'encoding': "UTF-8",
+        'no-outline': None
+        }))
+    resp.headers['Content-Type'] = 'application/pdf'
+    return resp
 
 grade_convertor = {
     'O': 10,
@@ -142,7 +232,7 @@ def process_pdf(file):
     semester = int(re.search(r'Semester\s*:\s*(\d+)', df[0].columns[0]).group(1))
     current_year = int(re.search(r'[A-Za-z]*\s*\-\s*([0-9]{4})', df[0].columns[0]).group(1))
     df = process_df(df)
-    year = find_year(df)
+    dominant_year = find_year(df)
 
     for i in range(len(df)):
         insert_statement = sqlite.insert(Student).values(roll_number=int(df.iloc[i][0]), name=df.iloc[i][1], joined_year=int(df.iloc[i][0][:4]))
@@ -161,13 +251,13 @@ def process_pdf(file):
 
                 # New Student Detail
                 if len(students_in_db) == 0:
-                        conn.execute(sqlite.insert(StudentCourse).values(course_id=c, roll_number=int(df.iloc[student_i][0]), grade=df.iloc[student_i][course_i + 2], graded_year=current_year, status=(0 if df.iloc[student_i][course_i + 2] in ['O', 'A+', 'A', 'B+', 'B'] else 2)))
+                        conn.execute(sqlite.insert(StudentCourse).values(course_id=c, roll_number=int(df.iloc[student_i][0]), grade=df.iloc[student_i][course_i + 2], graded_year=(current_year if semester % 2 == 1 else current_year - 1), status=(0 if df.iloc[student_i][course_i + 2] in ['O', 'A+', 'A', 'B+', 'B'] else 2)))
                 else:
-                    if students_in_db[0].graded_year < current_year:
+                    if students_in_db[0].graded_year < (current_year if semester % 2 == 1 else current_year - 1):
                         print('Update ' + str(students_in_db[0].roll_number) + ' ' + students_in_db[0].course_id)
                         conn.execute(update(StudentCourse).values(updated_grade=df.iloc[student_i][course_i + 2], updated_graded_year=current_year, status=1).where((StudentCourse.roll_number==int(df.iloc[student_i][0])) & (StudentCourse.course_id==c)))
 
-                    if students_in_db[0].graded_year > current_year:
+                    if students_in_db[0].graded_year > (current_year if semester % 2 == 1 else current_year - 1):
                         print('Reverse Update ' + str(students_in_db[0].roll_number) + ' ' + students_in_db[0].course_id)
                         conn.execute(update(StudentCourse).values(grade=df.iloc[student_i][course_i + 2], graded_year=current_year, updated_grade=students_in_db[0].grade, updated_graded_year=students_in_db[0].graded_year, status=1).where((StudentCourse.roll_number==int(df.iloc[student_i][0])) & (StudentCourse.course_id==c)))
                 

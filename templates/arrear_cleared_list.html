@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arrear Cleared List</title>
+</head>
+<style>
+  * {
+    font-family: "Courier New", Courier, monospace;
+    font-size: small;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  td {
+    border: 1px solid black;
+    padding: 8px;
+    text-align: center;
+  }
+</style>
+
+<body>
+  <table>
+    <thead>
+      <tr>
+        <th colspan="5">Arrear Cleared List ({{batch_year}})</th>
+      </tr>
+      <tr>
+        <th style="text-decoration: underline">S.No</th>
+        {% for i in years %}
+        <th style="text-decoration: underline">Year {{ i }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for i in range(max_length) %}
+      <tr>
+        <td>{{i + 1}}</td>
+        {% for j in range(data |length) %}
+        <td>
+          {% if data[j][i] %}
+          {{data[j][i]['name']}} ( {{data[j][i]['roll_number']}} )
+          {% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+
+</html>
