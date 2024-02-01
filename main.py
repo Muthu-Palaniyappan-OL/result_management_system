@@ -64,7 +64,7 @@ class StudentCourse(DeclarativeBase):
     __table_args__ = (UniqueConstraint('course_id', 'roll_number', name='_course_roll_number_uc'),)
 
     def __repr__(self) -> str:
-        return f"StudentCourse(roll_number={self.roll_number}, course_id={self.course_id}, graded_year={self.graded_year}, grade={self.grade})"
+        return f"StudentCourse(roll_number={self.roll_number}, course_id={self.course_id}, graded_year={self.graded_year}, grade={self.grade}, updated_graded_year={self.updated_graded_year})"
 
 @app.route('/', methods=['POST', 'GET'])
 def home():
@@ -176,15 +176,35 @@ def arrear_cleared_list():
     for y in updated_graded_years:
         if y != None:
             years.add(y[0])
-    years = sorted(list(filter(lambda d:d != None, list(years))))[3:]
+    years = sorted(list(filter(lambda d:d != None, list(years))))
+
+    def gen_data():
+        data = session.query(StudentCourse).join(Student, StudentCourse.roll_number == Student.roll_number).filter(Student.joined_year == batch_year).all()
+        m = {}
+        for d in data:
+            if d.roll_number not in m:
+                m[d.roll_number] = []
+            
+            m[d.roll_number].append(d)
+        print(m)
+        m = {i : m[i] for i in m if len(list(filter(lambda d: d.status == 2, m[i]))) == 0}
+        m = {i : m[i] for i in m if len(list(filter(lambda d: d.status == 1, m[i]))) != 0}
+        for i in m:
+            m[i] = list(filter(lambda d: d.status == 1, m[i]))
+        return m
+
+    data = gen_data()
+
+    names = session.query(Student).where(Student.joined_year == batch_year).all()
+    names_map = {}
+    for n in names:
+        names_map[n.roll_number] = n.name
 
     m = {}
 
+    print(data)
     for i, year in enumerate(years):
-        failed_students_roll_number = [r[0] for r in session.query(Student.roll_number).join(StudentCourse, Student.roll_number == StudentCourse.roll_number).filter(Student.joined_year == batch_year, StudentCourse.status != 0, StudentCourse.graded_year == year ).distinct(Student.roll_number).all()]
-        m[i] = list(sorted([{'name':s.name, 'roll_number': s.roll_number} for s in session.query(Student).join(StudentCourse, Student.roll_number == StudentCourse.roll_number).filter(Student.joined_year == batch_year, StudentCourse.graded_year == year, Student.roll_number.notin_(failed_students_roll_number) ).distinct(Student.roll_number, Student.name).all()], key=lambda d:d['roll_number']))
-        if i != 0:
-            m[i] = list(filter(lambda d: len(list(filter(lambda f: d['roll_number'] == f['roll_number'], m[i-1]))) == 1, m[i]))
+        m[i] = [{'name': names_map[s], 'roll_number': data[s][0].roll_number}  for s in data if len(list(filter(lambda d:d.updated_graded_year > year, data[s]))) == 0]
     
     max_length = max([len(m[i]) for i in range(len(m))])
     
